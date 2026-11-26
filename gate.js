@@ -14,9 +14,14 @@
         var cache = {};
         window.ARK_ASSET = function (name) {
           var a = E.assets && E.assets[name]; if (!a) return Promise.reject(new Error('no asset ' + name));
-          if (!cache[name]) cache[name] = fetch(a.file, { cache: 'force-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
-            .then(function (buf) { return S.decrypt({ name: 'AES-GCM', iv: ub(a.iv) }, k, buf); })
-            .then(function (pt) { return URL.createObjectURL(new Blob([pt], { type: a.type })); });
+          // asset URLs carry the build version (make_gate.mjs: terrain.enc?v=...), so a copy cached under an earlier key is never reused.
+          // If a decrypt still fails (a stale copy from a proxy or an old cache), fetch once more straight from the network before giving up.
+          function get(mode) { return fetch(a.file, { cache: mode }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + a.file); return r.arrayBuffer(); })
+            .then(function (buf) { return S.decrypt({ name: 'AES-GCM', iv: ub(a.iv) }, k, buf); }); }
+          if (!cache[name]) cache[name] = get('default').catch(function (e) { if (window.console) console.warn('[arkland] ' + name + ': ' + (e && (e.name || e.message)) + ', refetching from the network'); return get('reload'); })
+            .then(function (pt) { return URL.createObjectURL(new Blob([pt], { type: a.type })); },
+                  function (e) { var m = (e && e.name === 'OperationError') ? name + ' did not decrypt with this build\u2019s key (stale or corrupt copy)' : name + ': ' + (e && (e.message || e.name) || 'error');
+                    if (window.console) console.error('[arkland] asset failed:', m, e); delete cache[name]; throw new Error(m); });
           return cache[name];
         };
         return S.decrypt({ name: 'AES-GCM', iv: ub(E.iv) }, k, ub(E.ct));
