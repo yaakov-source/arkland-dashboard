@@ -14,19 +14,20 @@
         var cache = {};
         window.ARK_ASSET = function (name) {
           var a = E.assets && E.assets[name]; if (!a) return Promise.reject(new Error('no asset ' + name));
-          // asset URLs carry the build version (make_gate.mjs: terrain.enc?v=...), so a copy cached under an earlier key is never reused.
-          // If a decrypt still fails (a stale copy from a proxy or an old cache), fetch once more straight from the network before giving up.
-          function get(mode) { return fetch(a.file, { cache: mode }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + a.file); return r.arrayBuffer(); })
-            .then(function (buf) { return S.decrypt({ name: 'AES-GCM', iv: ub(a.iv) }, k, buf); }); }
-          if (!cache[name]) cache[name] = get('default').catch(function (e) { if (window.console) console.warn('[arkland] ' + name + ': ' + (e && (e.name || e.message)) + ', refetching from the network'); return get('reload'); })
+          // asset URLs carry a content hash (make_gate.mjs: terrain.enc?v=<sha256 of the ciphertext>), so a copy cached under an earlier key is
+          // never reused. If a decrypt still fails (a stale copy from a proxy), fetch once more straight from the network before giving up.
+          // Errors name the step that failed: fetch, decrypt (or, in the renderer, parse).
+          function stage(st, e) { var x = new Error(st + ': ' + name + ' ' + (e && (e.message || e.name) || '')); x.stage = st; x.cause = e; return x; }
+          function get(mode) { return fetch(a.file, { cache: mode }).then(function (r) { if (!r.ok) throw stage('fetch', new Error('HTTP ' + r.status)); return r.arrayBuffer(); }, function (e) { throw stage('fetch', e); })
+            .then(function (buf) { return S.decrypt({ name: 'AES-GCM', iv: ub(a.iv) }, k, buf).catch(function (e) { throw stage('decrypt', e && e.name === 'OperationError' ? new Error('stale or corrupt copy, does not match this build\u2019s key') : e); }); }); }
+          if (!cache[name]) cache[name] = get('default').catch(function (e) { if (window.console) console.warn('[arkland] ' + e.message + '; refetching from the network'); return get('reload'); })
             .then(function (pt) { return URL.createObjectURL(new Blob([pt], { type: a.type })); },
-                  function (e) { var m = (e && e.name === 'OperationError') ? name + ' did not decrypt with this build\u2019s key (stale or corrupt copy)' : name + ': ' + (e && (e.message || e.name) || 'error');
-                    if (window.console) console.error('[arkland] asset failed:', m, e); delete cache[name]; throw new Error(m); });
+                  function (e) { if (window.console) console.error('[arkland] asset failed:', e.message, e.cause || ''); delete cache[name]; throw e; });
           return cache[name];
         };
-        return S.decrypt({ name: 'AES-GCM', iv: ub(E.iv) }, k, ub(E.ct));
+        return S.decrypt({ name: 'AES-GCM', iv: ub(E.iv) }, k, ub(E.ct)).catch(function (e) { var x = new Error('decrypt: dashboard bundle ' + (e && e.name || '')); x.name = 'decrypt'; throw x; });
       })
-      .then(function (pt) { document.body.classList.remove('is-locked'); (0, eval)(new TextDecoder().decode(pt)); })
+      .then(function (pt) { document.body.classList.remove('is-locked'); try { (0, eval)(new TextDecoder().decode(pt)); } catch (e) { if (window.console) console.error('[arkland] parse: dashboard bundle', e); var x = new Error('parse: dashboard bundle ' + (e && e.message || '')); x.name = 'parse'; throw x; } })
       .then(function () { try { sessionStorage.setItem(KEY, bu(K)); } catch (e) {} });
   }
   function unwrap(u, p) {
@@ -44,7 +45,7 @@
     if (!u || !p) { reset('Enter your username and password.'); return; }
     btn.disabled = true; btn.textContent = 'Checking\u2026';
     Promise.resolve().then(function () { return unwrap(u, p); }).then(function (K) {
-      return open(K).catch(function (e) { document.body.classList.add('is-locked'); reset('Signed in, but the dashboard failed to load (' + (e && (e.name || e.message) || 'error') + '). Refresh and try again.'); });
+      return open(K).catch(function (e) { document.body.classList.add('is-locked'); reset('Signed in, but the dashboard failed to load (' + (e && (e.message || e.name) || 'unknown step') + '). Refresh and try again.'); });
     }, function () { reset('That username and password don\u2019t match.'); document.getElementById('gate-p').select(); });
   });
   var show = document.getElementById('gate-show');
