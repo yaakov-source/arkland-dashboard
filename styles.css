@@ -598,3 +598,25 @@ html.v3d-open, html.v3d-open body { overflow: hidden; }
 .bpop__x svg { transform: rotate(45deg); }
 .v3d__lgb { display: none !important; }
 .v3d:has([data-lay="build"][aria-pressed="true"]) .v3d__lgb { display: inline-flex !important; }
+
+/* v4.3: dashboard tab (existing tokens only) */
+.lbx__ctl { grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, .8fr); align-items: end; gap: 14px 28px; }
+.lbx__house { display: grid; gap: 6px; margin: 0; padding-bottom: 22px; }
+.lbx__house b { color: var(--ink); font: 500 22px/1.15 var(--sans); letter-spacing: -.02em; }
+.lbx__tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.lbx__tiles .kpi__value small { margin-left: 2px; color: var(--muted); font-size: .5em; letter-spacing: 0; }
+.lbx__chart { margin-bottom: 14px; }
+.lbx__read { margin-top: 10px; min-height: 2.6em; align-items: center; }
+.lbx__read b { color: var(--ink); font-size: 14px; font-weight: 600; margin-right: 4px; }
+.lbx__tot li { padding: 12px 4px; font-size: 14.5px; }
+.lbx__tot b { font-size: 18px; }
+.lbx__tot li.is-sum { grid-template-columns: minmax(0, 1fr) auto; color: var(--ink); }
+.lbx__tot li.is-credit { border-bottom: 0; color: var(--muted); }
+.lbx__tot li.is-credit b { color: var(--muted); }
+.lbx__foot { margin-top: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+@media (max-width: 1100px) { .lbx__tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lbx__ctl { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lbx__house { grid-column: 1 / -1; padding-bottom: 0; } }
+@media (max-width: 700px) { .lbx__ctl { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .lbx__tiles { gap: 10px; } .lbx__tiles .kpi { padding: 14px 14px 12px; } .lbx__tiles .kpi__value { font-size: 23px; } }
+@media (max-width: 350px) { .lbx__tiles .kpi__value { font-size: 19px; } }
+.lbx__ctl .buildx__ctl b { white-space: nowrap; }
+@media (max-width: 420px) { .lbx__ctl .buildx__ctl b { font-size: 22px; } .lbx__house b { font-size: 19px; } }
